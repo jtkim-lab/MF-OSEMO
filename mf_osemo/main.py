@@ -23,8 +23,9 @@ import utils
 
 
 functions = [mfbranin, mfCurrin]
-experiment_name = 'branin_Currin_2'
+str_experiment = 'branin_currin_2'
 cost = np.array([[1, 10], [1, 10]])
+M = [len(i) for i in cost]
 
 num_X = 1000
 dim = 2
@@ -58,13 +59,12 @@ for i in range(0, num_functions):
 y = [np.asarray(y[i]) for i in range(len(y))]
 
 # Initial setting
-M = [len(i) for i in cost]
-fidelity_iter = [np.array([fir_num for j in range(M[i]-1)]+[1]) for i in range(len(M))]
+fidelity_iter = [np.array([fir_num for j in range(M[i] - 1)] + [1]) for i in range(len(M))]
 #fidelity_iter = [np.array([fir_num, fir_num, 1]),np.array([fir_num, 0])]
 
-total_cost = sum([sum([(float(cost[i][m])/cost[i][M[i]-1])*fidelity_iter[i][m]  for m in range(M[i])]) for i in range(len(M))])
+total_cost = sum([sum([(float(cost[i][m]) / cost[i][M[i] - 1]) * fidelity_iter[i][m] for m in range(M[i])]) for i in range(len(M))])
 
-allcosts=[total_cost]
+allcosts = [total_cost]
 candidate_x = [np.c_[np.zeros(num_X), X] for i in range(0, num_functions)]
 
 for i in range(0, num_functions):
@@ -110,39 +110,39 @@ for i in range(0, num_functions):
 
 experiment_num=0
 
-path_file = utils.get_path_file(experiment_num, str_approximation)
+path_file = utils.get_path_file(str_experiment, experiment_num, str_approximation)
 cost_input_output= open(path_file, "a")
 print("total_cost:", total_cost)
 
 for j in range(0, 100):
     if j % 5 != 0:
-        for i in range(len(functions)):
+        for i in range(0, num_functions):
             GPs[i].fit(candidate_x[i][GP_index[i].tolist()], y[i][GP_index[i].tolist()])
             GP_mean[i], GP_std[i], cov[i] = GPs[i].predict(candidate_x[i])
 #            print("Inference Highest fidelity",GP_mean[i][x_best_index+num_X*(M[i]-1)])
 
     else:
-        for i in range(len(functions)):
+        for i in range(0, num_functions):
             GPs[i].optimized_fit(candidate_x[i][GP_index[i].tolist()], y[i][GP_index[i].tolist()])
             GP_mean[i], GP_std[i], cov[i] = GPs[i].optimized_predict(candidate_x[i])
-    #################################################################
-    for i in range(len(functions)):
+
+    for i in range(0, num_functions):
         if fidelity_iter[i][M[i]-1] > 0:
             y_max[i] = np.max(y[i][GP_index[i][GP_index[i] >= (M[i] - 1) * num_X]])
         else:
             y_max[i] = GP_mean[i][(M[i] - 1) * num_X:][np.argmax(GP_mean[i][(M[i] - 1) * num_X:]+GP_std[i][(M[i] - 1) * num_X:])]
 
-        # Acquisition function calculation
-    for i in range(len(functions)):
+    # Acquisition function calculation
+    for i in range(0, num_functions):
         if str_approximation == 'NI':
-            MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_NI(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i], num_X, cov[i],RegressionModel=GPs[i],sampling_num=sample_number)
+            MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_NI(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i], num_X, cov[i],RegressionModel=GPs[i], sampling_num=sample_number)
         else:
-            MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_TG(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i], num_X, RegressionModel=GPs[i],sampling_num=sample_number)
+            MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_TG(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i], num_X, RegressionModel=GPs[i], sampling_num=sample_number)
 
-        func_samples[i]=MFMES[i].Sampling_RFM()
+        func_samples[i] = MFMES[i].Sampling_RFM()
     max_samples=[]
 
-    for i in range(sample_number):
+    for i in range(0, sample_number):
         front=[[-1*func_samples[k][l][i] for k in range(len(functions))] for l in range(num_X)] 
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points = front)
         cheap_pareto_front=[front[K] for K in ndf[0]]
@@ -152,8 +152,10 @@ for j in range(0, 100):
 
     for i in range(len(functions)):
         acq_funcs[i]=MFMES[i].calc_acq(np.asarray(max_samples[i]))
+
     #result[0]values of acq and remaining are the fidelity of each function 
     result=np.zeros((num_X, len(functions)+1))
+
     for k in range(num_X):
         temp=[]
         for i in range(len(functions)):
@@ -161,13 +163,16 @@ for j in range(0, 100):
         indecies=list(itertools.product(*[range(len(x)) for x in temp]))
         values_costs=[sum([float(cost[i][m])/cost[i][M[i]-1] for i,m in zip(range(len(functions)),index)]) for index in indecies]
         values=[float(sum(AF))/i for AF,i in zip(list(itertools.product(*temp)),values_costs)]
-        result[k][0]=max(values)
-        max_index=np.argmax(values)        
-        for i in range(len(functions)):
-            result[k][i+1]=indecies[max_index][i]
-    x_best_index=np.argmax(list(zip(*result))[0])
-    for i in range(len(functions)):    
-        new_index=int(x_best_index + num_X * result[x_best_index][i + 1])
+        result[k][0] = max(values)
+        max_index = np.argmax(values)
+
+        for i in range(0, num_functions):
+            result[k][i + 1] = indecies[max_index][i]
+
+    x_best_index = np.argmax(list(zip(*result))[0])
+
+    for i in range(0, num_functions):    
+        new_index = int(x_best_index + num_X * result[x_best_index][i + 1])
         print("new_input",candidate_x[i][new_index])                
         GP_index[i] = np.r_[GP_index[i], [new_index]]
         total_cost += float(cost[i][new_index // num_X])/cost[i][M[i]-1]
