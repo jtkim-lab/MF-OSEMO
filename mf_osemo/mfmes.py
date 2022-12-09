@@ -5,15 +5,16 @@ Created on Mon Aug 19 14:57:25 2019
 @author: Syrine Belakaria
 This code is based on the code from https://github.com/takeno1995/BayesianOptimization
 """
+
 from sklearn.kernel_approximation import RBFSampler
 import numpy as np
 import numpy.matlib
-#import matplotlib
-#import matplotlib.pyplot as plt
 from scipy.stats import norm
 import math
 import sys
 import time
+
+
 class MultiFidelityMaxvalueEntroySearch_NI():
     def __init__(self, mean, std, y_max, index, M, cost, size, cov, sampling_num=10, EntropyApproxNum=100, RegressionModel=0, sigma_epsilon = 1e-3):
         self.mean = np.c_[mean]

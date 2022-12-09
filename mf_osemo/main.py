@@ -5,14 +5,11 @@ Created on Mon Aug 19 14:57:25 2019
 @author: Syrine Belakaria
 This code is based on the code from https://github.com/takeno1995/BayesianOptimization
 """
+
 import numpy as np
-# import sobol_seq
 import pygmo as pg
 from pygmo import hypervolume
 import itertools
-#import matplotlib
-#import matplotlib.pyplot as plt
-# matplotlib.use("Agg")
 from scipy.spatial.distance import cdist
 
 from sklearn.gaussian_process.kernels import RBF
@@ -21,12 +18,12 @@ import mfmes as MFBO
 import mfmodel as MFGP
 import os
 from test_functions import mfbranin,mfCurrin
+
+
 functions=[mfbranin,mfCurrin]
 experiment_name='branin_Currin_2'
 d=2
 cost = [[1, 10],[1, 10]]
-
-
 
 paths=''
 
