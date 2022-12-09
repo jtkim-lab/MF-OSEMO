@@ -1,50 +1,54 @@
 # -*- coding: utf-8 -*-
 """
+
 Created on Mon Aug 19 14:57:25 2019
 
 @author: Syrine Belakaria
 This code is based on the code from https://github.com/takeno1995/BayesianOptimization
+
 """
 
 import numpy as np
 import pygmo as pg
 from pygmo import hypervolume
 import itertools
-from scipy.spatial.distance import cdist
 
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import norm
 import mfmes as MFBO
 import mfmodel as MFGP
 import os
-from test_functions import mfbranin,mfCurrin
+from test_functions import mfbranin, mfCurrin
+import utils
 
 
-functions=[mfbranin,mfCurrin]
-experiment_name='branin_Currin_2'
-d=2
+functions = [mfbranin,mfCurrin]
+experiment_name = 'branin_Currin_2'
+d = 2
 cost = [[1, 10],[1, 10]]
 
-paths=''
-
-#approx='TG'
-approx='NI'
+#str_approximation = 'TG'
+str_approximation = 'NI'
+assert str_approximation in ['TG', 'NI']
 
 fir_num = 5
 
 seed=0
 np.random.seed(seed)
-sample_number=1
+
+sample_number = 1
 referencePoint = [1e5]*len(functions)
-bound=[0,1]
+bound = [0,1]
 x =np.random.uniform(bound[0], bound[1],size=(1000, d))
+
 # Create data from functions
-y=[[] for i in range(len(functions))]
+y = [[] for i in range(len(functions))]
 for i in range(len(functions)):
     for m in range(len(cost[i])):
         for xi in x:
             y[i].append(functions[i](xi,d,m))
-y=[np.asarray(y[i]) for i in range(len(y))]
+
+y = [np.asarray(y[i]) for i in range(len(y))]
 
 # Initial setting
 size = np.size(x, 0)
@@ -54,6 +58,7 @@ fidelity_iter=[np.array([fir_num for j in range(M[i]-1)]+[1]) for i in range(len
 total_cost = sum([sum([(float(cost[i][m])/cost[i][M[i]-1])*fidelity_iter[i][m]  for m in range(M[i])]) for i in range(len(M))])
 allcosts=[total_cost]
 candidate_x = [np.c_[np.zeros(size), x] for i in range(len(functions))]
+
 for i in range(len(functions)):
     for m in range(1, M[i]):
         candidate_x[i] = np.r_[candidate_x[i], np.c_[m*np.ones(size), x]]
@@ -77,6 +82,7 @@ y_max=[]
 GP_index=[]
 func_samples=[]
 acq_funcs=[]
+
 for i in range(len(functions)):
     GPs.append(MFGP.MFGPRegressor(kernel=kernel))
     GP_mean.append([])
@@ -85,19 +91,23 @@ for i in range(len(functions)):
     MFMES.append(0)
     y_max.append(0)
     temp0=[]
+
     for m in range(M[i]):
         temp0=temp0+list(np.random.randint(size*m, size*(m+1), fidelity_iter[i][m]))
+
     GP_index.append(np.array(temp0))
 #    GP_index.append(np.random.randint(0, size, fir_num))
     func_samples.append([])
     acq_funcs.append([])
-experiment_num=0
-cost_input_output= open(str(experiment_num)+approx+'_input_output.txt', "a")
-print("total_cost:",total_cost)
 
-    
-for j in range(300):
-    if j%5!=0:
+experiment_num=0
+
+path_file = utils.get_path_file(experiment_num, str_approximation)
+cost_input_output= open(path_file, "a")
+print("total_cost:", total_cost)
+
+for j in range(0, 100):
+    if j % 5 != 0:
         for i in range(len(functions)):
             GPs[i].fit(candidate_x[i][GP_index[i].tolist()], y[i][GP_index[i].tolist()])
             GP_mean[i], GP_std[i], cov[i] = GPs[i].predict(candidate_x[i])
@@ -116,12 +126,14 @@ for j in range(300):
 
         # Acquisition function calculation
     for i in range(len(functions)):
-        if approx=='NI':
+        if str_approximation == 'NI':
             MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_NI(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i], size, cov[i],RegressionModel=GPs[i],sampling_num=sample_number)
         else:
             MFMES[i] = MFBO.MultiFidelityMaxvalueEntroySearch_TG(GP_mean[i], GP_std[i], y_max[i], GP_index[i], M[i], cost[i],size,RegressionModel=GPs[i],sampling_num=sample_number)
+
         func_samples[i]=MFMES[i].Sampling_RFM()
     max_samples=[]
+
     for i in range(sample_number):
         front=[[-1*func_samples[k][l][i] for k in range(len(functions))] for l in range(size)] 
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points = front)
@@ -129,7 +141,7 @@ for j in range(300):
         maxoffunctions=[-1*min(f) for f in list(zip(*cheap_pareto_front))]
         max_samples.append(maxoffunctions)
     max_samples=list(zip(*max_samples))
-        
+
     for i in range(len(functions)):
         acq_funcs[i]=MFMES[i].calc_acq(np.asarray(max_samples[i]))
     #result[0]values of acq and remaining are the fidelity of each function 
@@ -152,11 +164,12 @@ for j in range(300):
         GP_index[i] = np.r_[GP_index[i], [new_index]]
         total_cost += float(cost[i][new_index//size])/cost[i][M[i]-1]
         fidelity_iter[i][new_index//size] += 1
-        
+
     cost_input_output.write(str(total_cost)+' '+str(candidate_x[i][new_index])+' '+str(np.array([y[i][new_index] for i in range(len(functions))]))+"\n")
     cost_input_output.close()
-    print("total_cost: ",total_cost)
-    cost_input_output= open(str(experiment_num)+approx+'_input_output.txt', "a")     
+
+    print("total_cost:", total_cost)
+    cost_input_output = open(path_file, "a")
     allcosts.append(total_cost)
 
 cost_input_output.close()

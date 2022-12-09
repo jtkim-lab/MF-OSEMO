@@ -188,4 +188,3 @@ class MFGPKernel(object):
         print('Standard_length_scale:',Standard_length_scale)
         self.kernel_f.set_params(k2__length_scale=Standard_length_scale , k2__length_scale_bounds=(1e-2*Standard_length_scale, 1e1*Standard_length_scale))
         self.kernel_e.set_params(k2__length_scale=Standard_length_scale , k2__length_scale_bounds=(1e-2*Standard_length_scale, 1e1*Standard_length_scale))
-        

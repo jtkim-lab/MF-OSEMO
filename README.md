@@ -5,7 +5,7 @@ This repository has been forked from the original repository, [MF-OSEMO](https:/
 I cleaned up codes and made it runnable for my own purpose.
 
 ### Requirements
-The code is implemented in Python and requires the following packages defined `requirements.txt`.
+The code is implemented in Python and requires the following packages defined in `requirements.txt`.
 
 ### Citation
 If you use this code in your academic work please cite our papers:
