@@ -160,14 +160,15 @@ for j in range(0, 100):
         temp=[]
         for i in range(len(functions)):
             temp.append([acq_funcs[i][k + m * num_X] for m in range(M[i])])
-        indecies=list(itertools.product(*[range(len(x)) for x in temp]))
-        values_costs=[sum([float(cost[i][m])/cost[i][M[i]-1] for i,m in zip(range(len(functions)),index)]) for index in indecies]
+
+        indices=list(itertools.product(*[range(len(x)) for x in temp]))
+        values_costs=[sum([float(cost[i][m])/cost[i][M[i]-1] for i,m in zip(range(len(functions)),index)]) for index in indices]
         values=[float(sum(AF))/i for AF,i in zip(list(itertools.product(*temp)),values_costs)]
         result[k][0] = max(values)
         max_index = np.argmax(values)
 
         for i in range(0, num_functions):
-            result[k][i + 1] = indecies[max_index][i]
+            result[k][i + 1] = indices[max_index][i]
 
     x_best_index = np.argmax(list(zip(*result))[0])
 
