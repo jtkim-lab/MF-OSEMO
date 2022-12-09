@@ -22,10 +22,15 @@ from test_functions import mfbranin, mfCurrin
 import utils
 
 
-functions = [mfbranin,mfCurrin]
+functions = [mfbranin, mfCurrin]
 experiment_name = 'branin_Currin_2'
-d = 2
-cost = [[1, 10],[1, 10]]
+cost = np.array([[1, 10], [1, 10]])
+
+dim = 2
+num_functions = len(functions)
+num_fidelities = cost.shape[1]
+
+assert cost.shape[0] == num_functions
 
 #str_approximation = 'TG'
 str_approximation = 'NI'
@@ -37,29 +42,30 @@ seed=0
 np.random.seed(seed)
 
 sample_number = 1
-referencePoint = [1e5]*len(functions)
-bound = [0,1]
-x =np.random.uniform(bound[0], bound[1],size=(1000, d))
+referencePoint = [1e5] * num_functions
+bound = [0, 1]
+X = np.random.uniform(bound[0], bound[1],size=(1000, dim))
 
 # Create data from functions
-y = [[] for i in range(len(functions))]
+y = [[] for i in range(0, num_functions)]
+
 for i in range(len(functions)):
-    for m in range(len(cost[i])):
-        for xi in x:
-            y[i].append(functions[i](xi,d,m))
+    for m in range(0, num_fidelities):
+        for xi in X:
+            y[i].append(functions[i](xi, dim, m))
 
 y = [np.asarray(y[i]) for i in range(len(y))]
 
 # Initial setting
-size = np.size(x, 0)
+size = np.size(X, 0)
 M = [len(i) for i in cost]
-fidelity_iter=[np.array([fir_num for j in range(M[i]-1)]+[1]) for i in range(len(M)) ]
+fidelity_iter = [np.array([fir_num for j in range(M[i]-1)]+[1]) for i in range(len(M))]
 #fidelity_iter = [np.array([fir_num, fir_num, 1]),np.array([fir_num, 0])]
 total_cost = sum([sum([(float(cost[i][m])/cost[i][M[i]-1])*fidelity_iter[i][m]  for m in range(M[i])]) for i in range(len(M))])
 allcosts=[total_cost]
 candidate_x = [np.c_[np.zeros(size), x] for i in range(len(functions))]
 
-for i in range(len(functions)):
+for i in range(0, num_functions):
     for m in range(1, M[i]):
         candidate_x[i] = np.r_[candidate_x[i], np.c_[m*np.ones(size), x]]
 
@@ -83,7 +89,7 @@ GP_index=[]
 func_samples=[]
 acq_funcs=[]
 
-for i in range(len(functions)):
+for i in range(0, num_functions):
     GPs.append(MFGP.MFGPRegressor(kernel=kernel))
     GP_mean.append([])
     GP_std.append([])
