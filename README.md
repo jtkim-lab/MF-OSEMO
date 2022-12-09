@@ -1,6 +1,6 @@
 ## Multi-Fidelity Multi-Objective Bayesian Optimization: An Output Space Entropy Search Approach
 
-This repository is forked from the original repository, [MF-OSEMO](https://github.com/belakaria/MF-OSEMO).
+This repository has been forked from the original repository, [MF-OSEMO](https://github.com/belakaria/MF-OSEMO).
 
 I cleaned up codes and made it runnable for my own purpose.
 
