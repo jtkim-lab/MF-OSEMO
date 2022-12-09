@@ -163,4 +163,3 @@ for j in range(300):
     allcosts.append(total_cost)
 
 cost_input_output.close()
-    

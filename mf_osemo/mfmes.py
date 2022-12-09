@@ -8,8 +8,8 @@ This code is based on the code from https://github.com/takeno1995/BayesianOptimi
 from sklearn.kernel_approximation import RBFSampler
 import numpy as np
 import numpy.matlib
-import matplotlib
-import matplotlib.pyplot as plt
+#import matplotlib
+#import matplotlib.pyplot as plt
 from scipy.stats import norm
 import math
 import sys

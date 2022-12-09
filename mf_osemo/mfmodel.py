@@ -6,8 +6,8 @@ Created on Mon Aug 19 14:57:25 2019
 This code is based on the code from https://github.com/takeno1995/BayesianOptimization
 """
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
+#import matplotlib
+#import matplotlib.pyplot as plt
 # matplotlib.use("Agg")
 from sklearn.gaussian_process.kernels import RBF
 from scipy.stats import norm
