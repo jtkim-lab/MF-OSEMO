@@ -29,11 +29,11 @@ class MFGPRegressor:
         covariance = Gram + np.identity(np.size(self.x_train, 0)) / self.beta  
         self.precision = np.linalg.inv(covariance)  
 
-    def optimized_fit(self, x, y, MT=False, error_opt = True):
+    def optimized_fit(self, x, y, MT=False, error_opt=True):
         self.x_train = np.c_[x]
         self.y = self.normalize(y)
 
-        if MT==False:
+        if MT == False:
             error_min = self.kernel.kernel_e.get_params()['k1__constant_value_bounds'][0]
             error_max = self.kernel.kernel_e.get_params()['k1__constant_value_bounds'][1]
             ell_min = self.kernel.kernel_f.get_params()['k2__length_scale_bounds'][0]
@@ -57,11 +57,11 @@ class MFGPRegressor:
                 for error in error_range:
                     self.kernel.set_params(selected_sigma_f, error, ell)
 
-                    Gram = self.kernel(self.x_train, self.x_train) 
+                    Gram = self.kernel(self.x_train, self.x_train)
                     covariance = Gram + np.identity(np.size(x, 0)) / self.beta 
                     L = np.linalg.cholesky(covariance)
                     alpha = np.linalg.solve(L.T, np.linalg.solve(L, self.y))
-                    evidence = -(self.y.T).dot(alpha)/2 - np.sum(np.log(np.diag(L)))  
+                    evidence = -(self.y.T).dot(alpha)/2 - np.sum(np.log(np.diag(L)))
                     if evidence > self.evidence:
                         selected_error = error
                         selected_ell = ell
@@ -73,11 +73,11 @@ class MFGPRegressor:
             for ell in ell_range:
                 self.kernel.set_params(selected_sigma_f, initial_error, ell)
 
-                Gram = self.kernel(self.x_train, self.x_train)  
-                covariance = Gram + np.identity(np.size(x, 0)) / self.beta  
+                Gram = self.kernel(self.x_train, self.x_train)
+                covariance = Gram + np.identity(np.size(x, 0)) / self.beta
                 L = np.linalg.cholesky(covariance)
                 alpha = np.linalg.solve(L.T, np.linalg.solve(L, self.y))
-                evidence = -(self.y.T).dot(alpha)/2 - np.sum(np.log(np.diag(L)))  
+                evidence = -(self.y.T).dot(alpha)/2 - np.sum(np.log(np.diag(L)))
                 if evidence > self.evidence:
                     selected_ell = ell
                     self.L = L
@@ -86,7 +86,6 @@ class MFGPRegressor:
 
             self.kernel.set_params(selected_sigma_f, initial_error, selected_ell)
 
-
     def predict(self, x, cov=True, var=False):
         self.M = np.int(np.max(x[:, 0])+1)
         self.size = np.int(np.size(x[:, 0])/self.M)
@@ -94,7 +93,7 @@ class MFGPRegressor:
 
         K = self.kernel(self.x_test, self.x_train)
         temp = K.dot(self.precision)
-        self.mean = temp.dot(self.y).ravel()  # 平均        
+        self.mean = temp.dot(self.y).ravel()
 
         if var == True:
             var = self.kernel(self.x_test, self.x_test) - temp.dot(K.T)
@@ -108,7 +107,7 @@ class MFGPRegressor:
             var[var<=0] = 1e-5
         self.std = np.sqrt(var).ravel()
 
-        if np.min(self.std) <= 0 :
+        if np.min(self.std) <= 0:
             print('ERROR: std is lower than 0')
         if np.sum(np.isnan(self.std)) > 0:
             print('Error: std have NAN')
@@ -130,7 +129,7 @@ class MFGPRegressor:
 
         K = self.kernel(self.x_train, self.x_test)
         v = np.linalg.solve(self.L, K)
-        self.mean = K.T.dot(self.alpha).ravel()  
+        self.mean = K.T.dot(self.alpha).ravel()
 
         var = self.kernel.diag(self.x_test) - np.einsum('ij,ji->i', v.T, v)
         if np.min(var) < - 1./self.beta or np.sum(np.isnan(var)) > 0:
@@ -151,7 +150,7 @@ class MFGPRegressor:
             return self.mean * self.y_std + self.y_mean, self.std * self.y_std
 
 # Multi-fidelity Kernel
-class MFGPKernel(object):
+class MFGPKernel:
     def __init__(self, kernel_f, kernel_e):
         self.kernel_f = kernel_f 
         self.kernel_e = kernel_e  
@@ -182,9 +181,9 @@ class MFGPKernel(object):
         x = np.atleast_2d(X)
         m, _ = x.shape
         norm = np.dot(np.ones([m, 1]), np.atleast_2d(np.sum(x ** 2, axis=1)))
-        norms = norm + norm.T - -2*x.dot(x.T)
+        norms = norm + norm.T - -2 * x.dot(x.T)
         norms = np.sort(norms, axis=1)
-        Standard_length_scale = np.sqrt(np.median(np.mean(norms[:,1:11])))
+        Standard_length_scale = np.sqrt(np.median(np.mean(norms[:, 1:11])))
         print('Standard_length_scale:',Standard_length_scale)
-        self.kernel_f.set_params(k2__length_scale=Standard_length_scale , k2__length_scale_bounds=(1e-2*Standard_length_scale, 1e1*Standard_length_scale))
-        self.kernel_e.set_params(k2__length_scale=Standard_length_scale , k2__length_scale_bounds=(1e-2*Standard_length_scale, 1e1*Standard_length_scale))
+        self.kernel_f.set_params(k2__length_scale=Standard_length_scale, k2__length_scale_bounds=(1e-2 * Standard_length_scale, 1e1 * Standard_length_scale))
+        self.kernel_e.set_params(k2__length_scale=Standard_length_scale, k2__length_scale_bounds=(1e-2 * Standard_length_scale, 1e1 * Standard_length_scale))
