@@ -122,7 +122,7 @@ class MultiFidelityMaxvalueEntroySearch_NI():
         Digit_min = math.ceil(np.log10(np.min(low_acq_func[:self.size])))
         if Digit_max < Digit_min+2:
             print('ERROR: digit of Devide Quadrature error is danger')
-            print('MaxDigit'+str(Digit_max)+', MinDigit'+str(Digit_min))
+            print('MaxDigit' + str(Digit_max) + ', MinDigit' + str(Digit_min))
 
         acq_func = np.r_[low_acq_func, high_acq_func]
 
@@ -130,7 +130,6 @@ class MultiFidelityMaxvalueEntroySearch_NI():
             acq_func[self.size*m: self.size*(m+1)] = acq_func[self.size*m: self.size*(m+1)]
         acq_func[self.index] = -1e100
         return acq_func
-
 
 
 class MultiFidelityMaxvalueEntroySearch_TG():
@@ -178,24 +177,27 @@ class MultiFidelityMaxvalueEntroySearch_TG():
         func_sample = X_test_features.dot(weights_sample) * self.RegModel.y_std + self.RegModel.y_mean
         return func_sample[(self.M-1)*self.size :self.M*self.size, :]
 
-    def calc_acq(self,max_sample):
-
+    def calc_acq(self, max_sample):
         c = np.zeros(self.M)
-        max_sample[max_sample < self.y_max + 5*np.sqrt(1.0/self.RegModel.beta)] = self.y_max + 5*np.sqrt(1.0/self.RegModel.beta)
+        max_sample[max_sample < self.y_max + 5 * np.sqrt(1.0 / self.RegModel.beta)] = self.y_max + 5 * np.sqrt(1.0 / self.RegModel.beta)
         max_sample = (np.c_[max_sample] + np.c_[c].T).T
+
         temp = np.matlib.repmat(np.c_[max_sample[0]].T, self.size, 1)
+
         for m in range(1, self.M):
             temp = np.r_[temp, np.matlib.repmat(np.c_[max_sample[m]].T, self.size, 1)]
+
         max_sample = temp
         normalized_max = (max_sample - np.c_[self.mean]) / np.c_[self.std]
 
         pdf = norm.pdf(normalized_max)
         cdf = norm.cdf(normalized_max)
 
-        acq_func = (normalized_max * pdf) / (2*cdf) - np.log(cdf)
+        acq_func = (normalized_max * pdf) / (2 * cdf) - np.log(cdf)
         acq_func = np.mean(acq_func, 1)
-        for m in range(0, self.M-1):
-            acq_func[self.size*m: self.size *(m+1)] = acq_func[self.size*m: self.size*(m+1)]
-        acq_func[self.index] = -1e100
-        return acq_func
 
+        for m in range(0, self.M - 1):
+            acq_func[self.size * m:self.size * (m + 1)] = acq_func[self.size * m:self.size * (m + 1)]
+        acq_func[self.index] = -1e100
+
+        return acq_func
