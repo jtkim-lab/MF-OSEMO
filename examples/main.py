@@ -1,7 +1,7 @@
 import numpy as np
 
-import run_bo
-from test_functions import branin, lowFidelitybranin, Currin, lowFidelityCurrin
+from mf_osemo import run_mf_osemo
+from mf_osemo.test_functions import branin, lowFidelitybranin, Currin, lowFidelityCurrin
 
 
 if __name__ == '__main__':
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     sample_number = 1
     seed = 42
 
-    run_bo.run_mfmo_bo(
+    run_mf_osemo.run_mfmo_bo(
         functions_costs,
         bounds,
         num_iter,
