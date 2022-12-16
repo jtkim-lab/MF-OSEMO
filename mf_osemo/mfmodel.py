@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Aug 19 14:57:25 2019
 
@@ -7,9 +6,6 @@ This code is based on the code from https://github.com/takeno1995/BayesianOptimi
 """
 
 import numpy as np
-from sklearn.gaussian_process.kernels import RBF
-from scipy.stats import norm
-import mfmes as MFBO
 
 
 class MFGPRegressor:
@@ -180,10 +176,10 @@ class MFGPKernel:
     def set_length_scale(self, X):
         x = np.atleast_2d(X)
         m, _ = x.shape
-        norm = np.dot(np.ones([m, 1]), np.atleast_2d(np.sum(x ** 2, axis=1)))
-        norms = norm + norm.T - -2 * x.dot(x.T)
+        norm_ = np.dot(np.ones([m, 1]), np.atleast_2d(np.sum(x ** 2, axis=1)))
+        norms = norm_ + norm_.T - -2 * x.dot(x.T)
         norms = np.sort(norms, axis=1)
         Standard_length_scale = np.sqrt(np.median(np.mean(norms[:, 1:11])))
-        print('Standard_length_scale:',Standard_length_scale)
+        print('Standard_length_scale:', Standard_length_scale)
         self.kernel_f.set_params(k2__length_scale=Standard_length_scale, k2__length_scale_bounds=(1e-2 * Standard_length_scale, 1e1 * Standard_length_scale))
         self.kernel_e.set_params(k2__length_scale=Standard_length_scale, k2__length_scale_bounds=(1e-2 * Standard_length_scale, 1e1 * Standard_length_scale))

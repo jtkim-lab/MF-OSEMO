@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Aug 19 14:57:25 2019
 
@@ -11,8 +10,6 @@ import numpy as np
 import numpy.matlib
 from scipy.stats import norm
 import math
-import sys
-import time
 
 
 class MultiFidelityMaxvalueEntroySearch_NI():
