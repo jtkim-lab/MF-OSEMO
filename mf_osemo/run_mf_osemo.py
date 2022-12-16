@@ -12,8 +12,9 @@ import pygmo as pg
 import itertools
 
 from sklearn.gaussian_process.kernels import RBF
-import mfmes as MFBO
-import mfmodel as MFGP
+
+import mf_osemo.mfmes as MFBO
+import mf_osemo.mfmodel as MFGP
 
 
 def get_costs(functions_costs):
