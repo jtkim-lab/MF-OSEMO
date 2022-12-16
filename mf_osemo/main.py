@@ -61,15 +61,17 @@ def get_mfgp_kernel():
 
     return kernel
 
-def get_initializations(functions_costs, bounds, seed, num_init_low=5, num_init_high=1):
-    dim = bounds.shape[0]
+def get_initializations(functions_costs, X, seed, num_init_low=5, num_init_high=1):
+    random_state = np.random.RandomState(seed)
 
     queries = []
+    queries_indices = []
     evaluations = []
     counts_fidelity = []
 
     for ind_elem, elem in enumerate(functions_costs):
         queries_ = []
+        queries_indices_ = []
         evaluations_ = []
         count_fidelity = []
 
@@ -80,19 +82,23 @@ def get_initializations(functions_costs, bounds, seed, num_init_low=5, num_init_
             else:
                 num_init_ = num_init_low
 
-            X_ = get_X(bounds, num_init_, seed * (ind_elem + 1) + ind_value)
+            indices_ = random_state.choice(np.arange(0, X.shape[0]), size=num_init_, replace=False)
+
+            X_ = X[indices_]
 
             for bx_ in X_:
                 queries_.append([ind_value] + list(bx_))
                 evaluations_.append(func(bx_, dim))
 
+            queries_indices_ += list(indices_ + X.shape[0] * ind_value)
             count_fidelity.append(num_init_)
 
         queries.append(np.array(queries_))
+        queries_indices.append(np.array(queries_indices_))
         evaluations.append(np.array(evaluations_))
         counts_fidelity.append(np.array(count_fidelity))
 
-    return queries, evaluations, counts_fidelity
+    return queries, queries_indices, evaluations, counts_fidelity
 
 def get_X(bounds, num_X, seed):
     random_state = np.random.RandomState(seed)
@@ -132,7 +138,7 @@ def get_max_samples(func_samples, num_X, num_functions, sample_number):
 if __name__ == '__main__':
     str_experiment = 'branin_currin_2'
     num_X = 1000
-    num_iter = 10
+    num_iter = 50
     num_first = 5
     seed = 42
     num_experiment = 0
@@ -160,20 +166,8 @@ if __name__ == '__main__':
     sample_number = 1
     X = get_X(bounds, num_X, seed)
     candidate_X = get_candidates(X, num_functions, num_fidelities)
-    Y = []
 
-    for elem in functions_costs:
-        by = []
-
-        for ind_elem, value in enumerate(elem):
-            func, _ = value
-
-            for bx in X:
-                by.append(func(bx, dim))
-
-        Y.append(np.array(by))
-
-    queries, evaluations, counts_fidelity = get_initializations(functions_costs, bounds, seed)
+    queries, queries_indices, evaluations, counts_fidelity = get_initializations(functions_costs, X, seed)
 
     total_cost = compute_total_cost(costs, counts_fidelity)
     total_costs_all = [total_cost]
@@ -181,24 +175,13 @@ if __name__ == '__main__':
     kernel = get_mfgp_kernel()
 
     GPs = []
-    GP_index = []
 
     for ind in range(0, num_functions):
         GPs.append(MFGP.MFGPRegressor(kernel=kernel))
-        temp0 = []
-
-        for m in range(0, num_fidelities[ind]):
-            temp0 += list(random_state.randint(
-                num_X * m, num_X * (m + 1),
-                counts_fidelity[ind][m]
-            ))
-
-        GP_index.append(np.array(temp0))
 
     print("total_cost:", total_cost)
 
     for ind_iter in range(0, num_iter):
-        y_max = []
         func_samples = []
         MFMES = []
 
@@ -220,14 +203,14 @@ if __name__ == '__main__':
                     candidate_X[ind])
 
             if counts_fidelity[ind][num_fidelities[ind] - 1] > 0:
-                y_max.append(np.max(Y[ind][GP_index[ind][GP_index[ind] >= (num_fidelities[ind] - 1) * num_X]]))
+                y_max_ = np.max(evaluations[ind][queries[ind][:, 0] == (num_fidelities[ind] - 1)])
             else:
-                y_max.append(mean_[(num_fidelities[ind] - 1) * num_X:][np.argmax(mean_[(num_fidelities[ind] - 1) * num_X:] + std_[(num_fidelities[ind] - 1) * num_X:])])
+                y_max_ = mean_[(num_fidelities[ind] - 1) * num_X:][np.argmax(mean_[(num_fidelities[ind] - 1) * num_X:] + std_[(num_fidelities[ind] - 1) * num_X:])]
 
             if str_approximation == 'NI':
-                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_NI(mean_, std_, y_max[ind], GP_index[ind], num_fidelities[ind], cost_, num_X, cov_,RegressionModel=GPs[ind], sampling_num=sample_number))
+                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_NI(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, cov_, RegressionModel=GPs[ind], sampling_num=sample_number))
             elif str_approximation == 'TG':
-                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_TG(mean_, std_, y_max[ind], GP_index[ind], num_fidelities[ind], cost_, num_X, RegressionModel=GPs[ind], sampling_num=sample_number))
+                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_TG(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, RegressionModel=GPs[ind], sampling_num=sample_number))
             else:
                 raise ValueError
 
@@ -266,9 +249,9 @@ if __name__ == '__main__':
             new_index = int(x_best_index + num_X * result[x_best_index][ind + 1])
             print(f'new_input {candidate_X[ind][new_index]}')
 
-            GP_index[ind] = np.r_[GP_index[ind], [new_index]]
+            queries_indices[ind] = np.concatenate([queries_indices[ind], [new_index]], axis=0)
             next_point = candidate_X[ind][new_index]
-            next_evaluation = Y[ind][new_index]
+            next_evaluation = functions_costs[ind][int(next_point[0])][0](next_point[1:], dim)
 
             queries[ind] = np.concatenate(
                 [queries[ind], [next_point]],
