@@ -87,7 +87,7 @@ def get_initializations(functions_costs, X, seed, num_init_low=5, num_init_high=
 
             for bx_ in X_:
                 queries_.append([ind_value] + list(bx_))
-                evaluations_.append(func(bx_, dim))
+                evaluations_.append(func(bx_))
 
             queries_indices_ += list(indices_ + num_X * ind_value)
             count_fidelity.append(num_init_)
@@ -134,7 +134,113 @@ def get_max_samples(func_samples, num_X, num_functions, sample_number):
     max_samples = list(zip(*max_samples))
     return max_samples
 
-def run_mfmo_bo(
+def run_mf_mo_bo_iter(
+    ind_iter,
+    GPs,
+    queries,
+    queries_indices,
+    evaluations,
+    counts_fidelity,
+    total_costs,
+    num_X,
+    candidate_X,
+    functions_costs,
+    costs,
+    num_functions,
+    num_fidelities,
+    str_approximation,
+    sample_number,
+):
+    func_samples = []
+    MFMES = []
+
+    for ind in range(0, num_functions):
+        cost_ = costs[ind]
+
+        if ind_iter % 5 != 0:
+            GPs[ind].fit(
+                queries[ind],
+                evaluations[ind],
+            )
+            mean_, std_, cov_ = GPs[ind].predict(candidate_X[ind])
+        else:
+            GPs[ind].optimized_fit(
+                queries[ind],
+                evaluations[ind],
+            )
+            mean_, std_, cov_ = GPs[ind].optimized_predict(
+                candidate_X[ind])
+
+        if counts_fidelity[ind][num_fidelities[ind] - 1] > 0:
+            y_max_ = np.max(evaluations[ind][queries[ind][:, 0] == (num_fidelities[ind] - 1)])
+        else:
+            y_max_ = mean_[(num_fidelities[ind] - 1) * num_X:][np.argmax(mean_[(num_fidelities[ind] - 1) * num_X:] + std_[(num_fidelities[ind] - 1) * num_X:])]
+
+        if str_approximation == 'NI':
+            MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_NI(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, cov_, RegressionModel=GPs[ind], sampling_num=sample_number))
+        elif str_approximation == 'TG':
+            MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_TG(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, RegressionModel=GPs[ind], sampling_num=sample_number))
+        else:
+            raise ValueError
+
+    for ind in range(0, num_functions):
+        func_samples.append(MFMES[ind].Sampling_RFM())
+
+    max_samples = get_max_samples(
+        func_samples, num_X, num_functions, sample_number)
+
+    acq_funcs = []
+
+    for i in range(0, num_functions):
+        acq_funcs.append(MFMES[i].calc_acq(np.array(max_samples[i])))
+
+    #result[0]values of acq and remaining are the fidelity of each function 
+    result = np.zeros((num_X, num_functions + 1))
+
+    for k in range(0, num_X):
+        temp=[]
+
+        for ind in range(0, num_functions):
+            temp.append([acq_funcs[ind][k + m * num_X] for m in range(0, num_fidelities[ind])])
+
+        indices = list(itertools.product(*[range(len(x)) for x in temp]))
+        values_costs = [sum([float(costs[i][m])/costs[i][num_fidelities[i]-1] for i,m in zip(range(num_functions), index)]) for index in indices]
+        values = [float(sum(AF))/i for AF, i in zip(list(itertools.product(*temp)),values_costs)]
+
+        result[k][0] = max(values)
+        max_index = np.argmax(values)
+
+        for i in range(0, num_functions):
+            result[k][i + 1] = indices[max_index][i]
+
+    x_best_index = np.argmax(list(zip(*result))[0])
+
+    for ind in range(0, num_functions):
+        new_index = int(x_best_index + num_X * result[x_best_index][ind + 1])
+        print(f'new_input {candidate_X[ind][new_index]}')
+
+        queries_indices[ind] = np.concatenate([queries_indices[ind], [new_index]], axis=0)
+        next_point = candidate_X[ind][new_index]
+        next_evaluation = functions_costs[ind][int(next_point[0])][0](next_point[1:])
+
+        queries[ind] = np.concatenate(
+            [queries[ind], [next_point]],
+            axis=0
+        )
+        evaluations[ind] = np.concatenate(
+            [evaluations[ind], [next_evaluation]],
+            axis=0
+        )
+        counts_fidelity[ind][new_index // num_X] += 1
+
+        total_cost = compute_total_cost(costs, counts_fidelity)
+
+    print(f'ITER {ind_iter + 1:04d}: total_cost {total_cost:.4f}')
+    total_costs.append(total_cost)
+
+    return GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs
+
+def run_mf_mo_bo(
     functions_costs,
     bounds,
     num_iter,
@@ -166,7 +272,7 @@ def run_mfmo_bo(
     queries, queries_indices, evaluations, counts_fidelity = get_initializations(functions_costs, X, seed)
 
     total_cost = compute_total_cost(costs, counts_fidelity)
-    list_total_costs = [total_cost]
+    total_costs = [total_cost]
     print(f'initial total_cost {total_cost:.4f}')
 
     kernel = get_mfgp_kernel()
@@ -176,89 +282,20 @@ def run_mfmo_bo(
         GPs.append(MFGP.MFGPRegressor(kernel=kernel))
 
     for ind_iter in range(0, num_iter):
-        func_samples = []
-        MFMES = []
-
-        for ind in range(0, num_functions):
-            cost_ = costs[ind]
-
-            if ind_iter % 5 != 0:
-                GPs[ind].fit(
-                    queries[ind],
-                    evaluations[ind],
-                )
-                mean_, std_, cov_ = GPs[ind].predict(candidate_X[ind])
-            else:
-                GPs[ind].optimized_fit(
-                    queries[ind],
-                    evaluations[ind],
-                )
-                mean_, std_, cov_ = GPs[ind].optimized_predict(
-                    candidate_X[ind])
-
-            if counts_fidelity[ind][num_fidelities[ind] - 1] > 0:
-                y_max_ = np.max(evaluations[ind][queries[ind][:, 0] == (num_fidelities[ind] - 1)])
-            else:
-                y_max_ = mean_[(num_fidelities[ind] - 1) * num_X:][np.argmax(mean_[(num_fidelities[ind] - 1) * num_X:] + std_[(num_fidelities[ind] - 1) * num_X:])]
-
-            if str_approximation == 'NI':
-                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_NI(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, cov_, RegressionModel=GPs[ind], sampling_num=sample_number))
-            elif str_approximation == 'TG':
-                MFMES.append(MFBO.MultiFidelityMaxvalueEntroySearch_TG(mean_, std_, y_max_, queries_indices[ind], num_fidelities[ind], cost_, num_X, RegressionModel=GPs[ind], sampling_num=sample_number))
-            else:
-                raise ValueError
-
-        for ind in range(0, num_functions):
-            func_samples.append(MFMES[ind].Sampling_RFM())
-
-        max_samples = get_max_samples(
-            func_samples, num_X, num_functions, sample_number)
-
-        acq_funcs = []
-
-        for i in range(0, num_functions):
-            acq_funcs.append(MFMES[i].calc_acq(np.array(max_samples[i])))
-
-        #result[0]values of acq and remaining are the fidelity of each function 
-        result = np.zeros((num_X, num_functions + 1))
-
-        for k in range(0, num_X):
-            temp=[]
-
-            for ind in range(0, num_functions):
-                temp.append([acq_funcs[ind][k + m * num_X] for m in range(0, num_fidelities[ind])])
-
-            indices = list(itertools.product(*[range(len(x)) for x in temp]))
-            values_costs = [sum([float(costs[i][m])/costs[i][num_fidelities[i]-1] for i,m in zip(range(num_functions), index)]) for index in indices]
-            values = [float(sum(AF))/i for AF, i in zip(list(itertools.product(*temp)),values_costs)]
-
-            result[k][0] = max(values)
-            max_index = np.argmax(values)
-
-            for i in range(0, num_functions):
-                result[k][i + 1] = indices[max_index][i]
-
-        x_best_index = np.argmax(list(zip(*result))[0])
-
-        for ind in range(0, num_functions):
-            new_index = int(x_best_index + num_X * result[x_best_index][ind + 1])
-            print(f'new_input {candidate_X[ind][new_index]}')
-
-            queries_indices[ind] = np.concatenate([queries_indices[ind], [new_index]], axis=0)
-            next_point = candidate_X[ind][new_index]
-            next_evaluation = functions_costs[ind][int(next_point[0])][0](next_point[1:], dim)
-
-            queries[ind] = np.concatenate(
-                [queries[ind], [next_point]],
-                axis=0
-            )
-            evaluations[ind] = np.concatenate(
-                [evaluations[ind], [next_evaluation]],
-                axis=0
-            )
-            counts_fidelity[ind][new_index // num_X] += 1
-
-            total_cost = compute_total_cost(costs, counts_fidelity)
-
-        print(f'ITER {ind_iter + 1:04d}: total_cost {total_cost:.4f}')
-        list_total_costs.append(total_cost)
+        GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs = run_mf_mo_bo_iter(
+            ind_iter,
+            GPs,
+            queries,
+            queries_indices,
+            evaluations,
+            counts_fidelity,
+            total_costs,
+            num_X,
+            candidate_X,
+            functions_costs,
+            costs,
+            num_functions,
+            num_fidelities,
+            str_approximation,
+            sample_number,
+        )

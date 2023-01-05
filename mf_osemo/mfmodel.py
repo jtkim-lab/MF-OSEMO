@@ -83,8 +83,8 @@ class MFGPRegressor:
             self.kernel.set_params(selected_sigma_f, initial_error, selected_ell)
 
     def predict(self, x, cov=True, var=False):
-        self.M = np.int(np.max(x[:, 0])+1)
-        self.size = np.int(np.size(x[:, 0])/self.M)
+        self.M = int(np.max(x[:, 0]) + 1)
+        self.size = int(np.size(x[:, 0]) / self.M)
         self.x_test = np.c_[x]
 
         K = self.kernel(self.x_test, self.x_train)
@@ -119,7 +119,7 @@ class MFGPRegressor:
             return self.mean * self.y_std + self.y_mean, self.std * self.y_std
 
     def optimized_predict(self, x, cov=True):
-        self.M = np.int(x[-1, 0]+1)
+        self.M = int(x[-1, 0] + 1)
         self.size = np.size(x[:, 0])//self.M
         self.x_test = np.c_[x]
 

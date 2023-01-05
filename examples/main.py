@@ -22,7 +22,7 @@ if __name__ == '__main__':
     sample_number = 1
     seed = 42
 
-    run_mf_osemo.run_mfmo_bo(
+    run_mf_osemo.run_mf_mo_bo(
         functions_costs,
         bounds,
         num_iter,
