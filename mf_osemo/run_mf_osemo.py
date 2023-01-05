@@ -8,6 +8,7 @@ This code is based on the code from https://github.com/takeno1995/BayesianOptimi
 """
 
 import numpy as np
+import time
 import pygmo as pg
 import itertools
 
@@ -146,6 +147,8 @@ def run_mf_mo_bo_iter(
     candidate_X,
     dict_info,
 ):
+    time_start = time.time()
+
     functions_costs = dict_info['functions_costs']
     costs = dict_info['costs']
     num_functions = dict_info['num_functions']
@@ -237,10 +240,13 @@ def run_mf_mo_bo_iter(
 
         total_cost = compute_total_cost(costs, counts_fidelity)
 
-    print(f'ITER {ind_iter + 1:04d}: total_cost {total_cost:.4f}')
     total_costs.append(total_cost)
+    time_end = time.time()
+    time_consumed = time_end - time_start
 
-    return GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs
+    print(f'ITER {ind_iter + 1:04d}: total_cost {total_cost:.4f} time_consumed {time_consumed:.4f}')
+
+    return GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs, time_consumed
 
 def run_mf_mo_bo(
     functions_costs,
@@ -293,7 +299,7 @@ def run_mf_mo_bo(
         GPs.append(MFGP.MFGPRegressor(kernel=kernel))
 
     for ind_iter in range(0, num_iter):
-        GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs = run_mf_mo_bo_iter(
+        GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs, time_consumed = run_mf_mo_bo_iter(
             ind_iter,
             GPs,
             queries,
