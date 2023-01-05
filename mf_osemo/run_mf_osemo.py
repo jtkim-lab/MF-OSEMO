@@ -144,13 +144,15 @@ def run_mf_mo_bo_iter(
     total_costs,
     num_X,
     candidate_X,
-    functions_costs,
-    costs,
-    num_functions,
-    num_fidelities,
-    str_approximation,
-    sample_number,
+    dict_info,
 ):
+    functions_costs = dict_info['functions_costs']
+    costs = dict_info['costs']
+    num_functions = dict_info['num_functions']
+    num_fidelities = dict_info['num_fidelities']
+    str_approximation = dict_info['str_approximation']
+    sample_number = dict_info['sample_number']
+
     func_samples = []
     MFMES = []
 
@@ -275,6 +277,15 @@ def run_mf_mo_bo(
     total_costs = [total_cost]
     print(f'initial total_cost {total_cost:.4f}')
 
+    dict_info = {
+        'functions_costs': functions_costs,
+        'costs': costs,
+        'num_functions': num_functions,
+        'num_fidelities': num_fidelities,
+        'str_approximation': str_approximation,
+        'sample_number': sample_number,
+    }
+
     kernel = get_mfgp_kernel()
     GPs = []
 
@@ -292,10 +303,5 @@ def run_mf_mo_bo(
             total_costs,
             num_X,
             candidate_X,
-            functions_costs,
-            costs,
-            num_functions,
-            num_fidelities,
-            str_approximation,
-            sample_number,
+            dict_info,
         )
