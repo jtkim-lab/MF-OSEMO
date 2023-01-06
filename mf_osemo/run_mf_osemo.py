@@ -18,6 +18,10 @@ import mf_osemo.mfmes as MFBO
 import mf_osemo.mfmodel as MFGP
 
 
+num_init_low = 5
+num_init_high = 1
+
+
 def get_costs(functions_costs):
     costs = []
 
@@ -59,7 +63,7 @@ def get_mfgp_kernel():
 
     return kernel
 
-def get_initializations(functions_costs, X, seed, num_init_low=5, num_init_high=1):
+def get_initializations(functions_costs, X, seed, num_init_low=num_init_low, num_init_high=num_init_high):
     random_state = np.random.RandomState(seed)
     num_X = X.shape[0]
 
@@ -136,18 +140,20 @@ def get_max_samples(func_samples, num_X, num_functions, sample_number):
 
 def run_mf_mo_bo_iter(
     ind_iter,
-    GPs,
-    queries,
-    queries_indices,
-    evaluations,
-    counts_fidelity,
-    total_costs,
-    num_X,
+    dict_update,
     candidate_X,
     dict_info,
 ):
     time_start = time.time()
 
+    GPs = dict_update['GPs']
+    queries = dict_update['queries']
+    queries_indices = dict_update['queries_indices']
+    evaluations = dict_update['evaluations']
+    counts_fidelity = dict_update['counts_fidelity']
+    total_costs = dict_update['total_costs']
+
+    num_X = dict_info['num_X']
     functions_costs = dict_info['functions_costs']
     costs = dict_info['costs']
     num_functions = dict_info['num_functions']
@@ -245,7 +251,56 @@ def run_mf_mo_bo_iter(
 
     print(f'ITER {ind_iter + 1:04d}: total_cost {total_cost:.4f} time_consumed {time_consumed:.4f}')
 
-    return GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs, time_consumed
+    dict_update['GPs'] = GPs
+    dict_update['queries'] = queries
+    dict_update['queries_indices'] = queries_indices
+    dict_update['evaluations'] = evaluations
+    dict_update['counts_fidelity'] = counts_fidelity
+    dict_update['total_costs'] = total_costs
+
+    return dict_update, time_consumed
+
+def initialize(functions_costs, bounds, num_X, str_approximation, sample_number, seed):
+    costs = get_costs(functions_costs)
+
+    num_functions = len(functions_costs)
+    num_fidelities = [len(elem) for elem in functions_costs]
+
+    X = get_X(bounds, num_X, seed)
+    candidate_X = get_candidates(X, num_functions, num_fidelities)
+
+    queries, queries_indices, evaluations, counts_fidelity = get_initializations(functions_costs, X, seed)
+
+    total_cost = compute_total_cost(costs, counts_fidelity)
+    total_costs = [total_cost]
+    print(f'initial total_cost {total_cost:.4f}')
+
+    dict_info = {
+        'num_X': num_X,
+        'functions_costs': functions_costs,
+        'costs': costs,
+        'num_functions': num_functions,
+        'num_fidelities': num_fidelities,
+        'str_approximation': str_approximation,
+        'sample_number': sample_number,
+    }
+
+    kernel = get_mfgp_kernel()
+    GPs = []
+
+    for ind in range(0, num_functions):
+        GPs.append(MFGP.MFGPRegressor(kernel=kernel))
+
+    dict_update = {
+        'GPs': GPs,
+        'queries': queries,
+        'queries_indices': queries_indices,
+        'evaluations': evaluations,
+        'counts_fidelity': counts_fidelity,
+        'total_costs': total_costs,
+    }
+
+    return dict_update, candidate_X, dict_info
 
 def run_mf_mo_bo(
     functions_costs,
@@ -267,45 +322,28 @@ def run_mf_mo_bo(
     assert bounds.shape[1] == 2
     assert str_approximation in ['TG', 'NI']
 
-    costs = get_costs(functions_costs)
-
-    num_functions = len(functions_costs)
-    num_fidelities = [len(elem) for elem in functions_costs]
-
-    X = get_X(bounds, num_X, seed)
-    candidate_X = get_candidates(X, num_functions, num_fidelities)
-
-    queries, queries_indices, evaluations, counts_fidelity = get_initializations(functions_costs, X, seed)
-
-    total_cost = compute_total_cost(costs, counts_fidelity)
-    total_costs = [total_cost]
-    print(f'initial total_cost {total_cost:.4f}')
-
-    dict_info = {
-        'functions_costs': functions_costs,
-        'costs': costs,
-        'num_functions': num_functions,
-        'num_fidelities': num_fidelities,
-        'str_approximation': str_approximation,
-        'sample_number': sample_number,
-    }
-
-    kernel = get_mfgp_kernel()
-    GPs = []
-
-    for ind in range(0, num_functions):
-        GPs.append(MFGP.MFGPRegressor(kernel=kernel))
+    dict_update, candidate_X, dict_info = initialize(functions_costs, bounds, num_X, str_approximation, sample_number, seed)
 
     for ind_iter in range(0, num_iter):
-        GPs, queries, queries_indices, evaluations, counts_fidelity, total_costs, time_consumed = run_mf_mo_bo_iter(
+        dict_update, time_consumed = run_mf_mo_bo_iter(
             ind_iter,
-            GPs,
-            queries,
-            queries_indices,
-            evaluations,
-            counts_fidelity,
-            total_costs,
-            num_X,
+            dict_update,
             candidate_X,
             dict_info,
         )
+
+    GPs = dict_update['GPs']
+    queries = dict_update['queries']
+    queries_indices = dict_update['queries_indices']
+    evaluations = dict_update['evaluations']
+    counts_fidelity = dict_update['counts_fidelity']
+    total_costs = dict_update['total_costs']
+
+    dim = bounds.shape[0]
+
+    assert queries[0].shape[0] == queries[1].shape[0] == (num_init_low + num_init_high + num_iter)
+    assert queries[0].shape[1] == queries[1].shape[1] == (dim + 1)
+    assert queries_indices[0].shape[0] == queries_indices[1].shape[0] == (num_init_low + num_init_high + num_iter)
+    assert evaluations[0].shape[0] == evaluations[1].shape[0] == (num_init_low + num_init_high + num_iter)
+    assert np.sum(counts_fidelity[0]) == np.sum(counts_fidelity[0]) == (num_init_low + num_init_high + num_iter)
+    assert len(total_costs) == (1 + num_iter)
