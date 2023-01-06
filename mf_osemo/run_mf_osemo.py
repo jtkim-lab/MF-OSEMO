@@ -62,7 +62,6 @@ def get_mfgp_kernel():
 def get_initializations(functions_costs, X, seed, num_init_low=5, num_init_high=1):
     random_state = np.random.RandomState(seed)
     num_X = X.shape[0]
-    dim = X.shape[1]
 
     queries = []
     queries_indices = []
@@ -268,7 +267,6 @@ def run_mf_mo_bo(
     assert bounds.shape[1] == 2
     assert str_approximation in ['TG', 'NI']
 
-    dim = bounds.shape[0]
     costs = get_costs(functions_costs)
 
     num_functions = len(functions_costs)
